@@ -1,14 +1,14 @@
 # ======================= DEFINE ============================
 COL = 0 # 데이터 필드
 TIMESTAMP = 0 # 레코드[0] = 타임스탬프
-ROOTPATH = 'D:\workspace\학교\codyssey_2025_1\chap_01' # 프로젝트 루트 디렉터리
+ROOTPATH = 'D:\\workspace\\학교\\codyssey_2025_1\\chap_01\\' # 프로젝트 루트 디렉터리
 
 # ======================== HELLO WORLD ====================================
 print('Hello World')
 
 # ========================= FILE OUT ===================================
 
-with open( ROOTPATH + '\mission_computer_main.log', 'r', encoding='utf-8') as file:
+with open( ROOTPATH + 'mission_computer_main.log', 'r', encoding='utf-8') as file:
     lines = file.read().split('\n')
 
 column = lines[COL].split(',')
@@ -24,7 +24,7 @@ for row in data:
 # >> end for <<
 
 #out
-with open( ROOTPATH + '\log_analysis.md', 'w', encoding='utf-8') as f:
+with open( ROOTPATH + '\\log_analysis.md', 'w', encoding='utf-8') as f:
     # >> start for <<
     for time, entries in sorted(time_dict.items()):
         f.write(f'## {time}\n')
