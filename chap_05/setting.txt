@@ -1,0 +1,7 @@
+operating_system=true
+os_version=true
+cpu_type=false
+cpu_core_count=true
+memory_size=true
+cpu_usage_percent=true
+memory_usage_percent=false
