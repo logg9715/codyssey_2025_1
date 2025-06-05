@@ -1,111 +1,72 @@
 import zipfile
 import time
-import string
-import os
-import multiprocessing
-import threading
-from io import BytesIO
+from datetime import timedelta
 
-zip_filename = 'chap_08/emergency_storage_key.zip'
-output_password_file = 'password.txt'
-charset = string.digits + string.ascii_lowercase
-base = len(charset)
-threads_per_process = 10  # 최적 병렬 설정
 
-def index_to_password(index):
-    password = ''
-    for _ in range(6):
-        password = charset[index % base] + password
-        index //= base
-    return password
+class ZipBruteForcer:
+    def __init__(self, zip_path, max_length=6):
+        self.DIGITS = '0123456789abcdefghijklmnopqrstuvwxyz'
+        self.zip_path = zip_path
+        self.max_length = max_length
+        self.max_tries = len(self.DIGITS) ** self.max_length
+        self.start_time = None
+        self.attempts = 0
 
-def worker(sub_start, sub_end, zip_data, counter, found_flag):
-    try:
-        zip_bytes = BytesIO(zip_data)
-        zf = zipfile.ZipFile(zip_bytes)
-        target_file = zf.namelist()[0] if zf.namelist() else None
-        for i in range(sub_start, sub_end):
-            if found_flag.value or not target_file:
-                zf.close()
+    def increment_id(self, s):
+        base = len(self.DIGITS)
+        s_list = list(s)
+        i = len(s_list) - 1
+
+        while i >= 0:
+            idx = self.DIGITS.index(s_list[i])
+            if idx + 1 < base:
+                s_list[i] = self.DIGITS[idx + 1]
+                break
+            else:
+                s_list[i] = self.DIGITS[0]
+                i -= 1
+        else:
+            s_list = [self.DIGITS[0]] + s_list
+
+        return ''.join(s_list)
+
+    def try_password(self, password):
+        try:
+            with zipfile.ZipFile(self.zip_path) as zf:
+                zf.extractall(pwd=password.encode())
+                print(f"[✓] 비밀번호 찾음: {password}")
+                return True
+        except:
+            return False
+
+    def print_status(self):
+        elapsed = time.time() - self.start_time
+        print("\n[완료]")
+        print(f"총 시도 횟수: {self.attempts}")
+        print(f"총 소요 시간: {timedelta(seconds=int(elapsed))}")
+
+    def unlock_zip(self):
+        pw = '000000'
+        self.start_time = time.time()
+
+        while len(pw) <= self.max_length:
+            self.attempts += 1
+
+            if self.try_password(pw):
+                self.print_status()
                 return
-            pwd = index_to_password(i)
-            try:
-                zf.setpassword(pwd.encode())
-                zf.read(target_file)
-                found_flag.value = True
-                with open(output_password_file, 'w') as f:
-                    f.write(pwd)
-                zf.close()
-                return
-            except:
-                counter.value += 1
-        zf.close()
-    except zipfile.BadZipFile:
-        pass
 
-def try_password_range(start, end, zip_data, counter, found_flag):
-    total_range = end - start
-    step = total_range // threads_per_process
-    threads = []
+            if self.attempts % 100000 == 0:
+                elapsed = time.time() - self.start_time
+                print(
+                    f"[진행 중] 시도: {self.attempts} | 비밀번호: {pw} | 경과: {timedelta(seconds=int(elapsed))}"
+                )
 
-    for t in range(threads_per_process):
-        sub_start = start + t * step
-        sub_end = end if t == threads_per_process - 1 else start + (t + 1) * step
-        thread = threading.Thread(target=worker, args=(sub_start, sub_end, zip_data, counter, found_flag))
-        thread.start()
-        threads.append(thread)
+            pw = self.increment_id(pw)
 
-    for t in threads:
-        t.join()
+        print("비밀번호를 찾지 못했습니다.")
 
-def progress_monitor(counter, total, start_time, found_flag):
-    while not found_flag.value:
-        time.sleep(1)
-        attempted = counter.value
-        elapsed = time.time() - start_time
-        print('경과 시간: {:.2f}초, 시도한 비밀번호 수: {:,} / {:,}'.format(elapsed, attempted, total))
 
-def unlock_zip():
-    if not os.path.exists(zip_filename):
-        print('에러: zip 파일이 존재하지 않음')
-        return
-
-    try:
-        with open(zip_filename, 'rb') as f:
-            zip_data = f.read()
-
-        total = base ** 6
-        process_count = multiprocessing.cpu_count() * 2  # 최적 병렬 설정
-        step = total // process_count
-        start_time = time.time()
-
-        counter = multiprocessing.Value('i', 0)
-        found_flag = multiprocessing.Value('b', False)
-
-        monitor = multiprocessing.Process(target=progress_monitor, args=(counter, total, start_time, found_flag))
-        monitor.start()
-
-        args_list = []
-        for i in range(process_count):
-            start = i * step
-            end = total if i == process_count - 1 else (i + 1) * step
-            args_list.append((start, end, zip_data, counter, found_flag))
-
-        processes = []
-        for args in args_list:
-            p = multiprocessing.Process(target=try_password_range, args=args)
-            p.start()
-            processes.append(p)
-
-        for p in processes:
-            p.join()
-
-        monitor.join()
-
-        if not found_flag.value:
-            print('비밀번호 찾지 못함')
-    except zipfile.BadZipFile:
-        print('에러: 유효하지 않은 ZIP 파일입니다.')
-
-if __name__ == '__main__':
-    unlock_zip()
+if __name__ == "__main__":
+    brute_forcer = ZipBruteForcer(zip_path='emergency_storage_key.zip')
+    brute_forcer.unlock_zip()
